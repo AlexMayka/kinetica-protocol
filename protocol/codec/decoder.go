@@ -75,7 +75,7 @@ func (p *packet) decodeItem(buf *bytes.Buffer) (*message.Item, error) {
 
 func (p *packet) validateFooter(transport message.TransportCRC) error {
 	if transport == message.TransportNone {
-		return nil // Нет footer для проверки
+		return nil
 	}
 
 	footerSize := message.GetFooterSize(transport)

@@ -50,12 +50,12 @@ const (
 )
 
 const (
-	DeviceTypeBNO085  DeviceType = 0x01
-	DeviceTypeMPU6050 DeviceType = 0x02
-	DeviceTypeLSM6DS3 DeviceType = 0x03
-	DeviceTypeADXL345 DeviceType = 0x04
-	DeviceTypeHub     DeviceType = 0x10
-	DeviceTypeCustom  DeviceType = 0xFF
+	DeviceType3Axis  DeviceType = 0x01
+	DeviceType6Axis  DeviceType = 0x02
+	DeviceType9Axis  DeviceType = 0x03
+	DeviceTypeHub    DeviceType = 0x10
+	DeviceTypeRelay  DeviceType = 0x11
+	DeviceTypeCustom DeviceType = 0xFF
 )
 
 const (

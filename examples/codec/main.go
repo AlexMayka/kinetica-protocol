@@ -7,7 +7,6 @@ import (
 )
 
 func main() {
-	// 1. SensorCommand
 	command := &message.SensorCommand{
 		SensorID:  1,
 		TimeStamp: 12345,
@@ -15,7 +14,6 @@ func main() {
 	}
 	testMessage(command, message.MsgTypeCommand, "SensorCommand")
 
-	// 2. SensorConfig
 	config := &message.SensorConfig{
 		SensorID:  1,
 		TimeStamp: 12345,
@@ -26,7 +24,6 @@ func main() {
 	}
 	testMessage(config, message.MsgTypeConfig, "SensorConfig")
 
-	// 3. SensorHeartbeat
 	heartbeat := &message.SensorHeartbeat{
 		SensorID:  1,
 		TimeStamp: 12345,
@@ -35,7 +32,6 @@ func main() {
 	}
 	testMessage(heartbeat, message.MsgTypeHeartbeat, "SensorHeartbeat")
 
-	// 4. SensorData
 	sensorData := &message.SensorData{
 		SensorID:  1,
 		TimeStamp: 12345,
@@ -44,7 +40,6 @@ func main() {
 	}
 	testMessage(sensorData, message.MsgTypeSensorData, "SensorData")
 
-	// 5. CustomData
 	customData := &message.CustomData{
 		SensorID:  1,
 		TimeStamp: 12345,
@@ -55,7 +50,6 @@ func main() {
 	}
 	testMessage(customData, message.MsgTypeCustom, "CustomData")
 
-	// 6. TimeSync
 	timeSync := &message.TimeSync{
 		SensorID:   1,
 		ServerTime: 1234567890,
@@ -63,7 +57,6 @@ func main() {
 	}
 	testMessage(timeSync, message.MsgTypeTimeSync, "TimeSync")
 
-	// 7. Ack
 	ack := &message.Ack{
 		SensorID:  1,
 		MessageID: 123,
@@ -71,16 +64,14 @@ func main() {
 	}
 	testMessage(ack, message.MsgTypeAck, "Ack")
 
-	// 8. Registration
 	registration := &message.Registration{
 		SensorID:     1,
-		DeviceType:   message.DeviceTypeBNO085,
+		DeviceType:   message.DeviceType9Axis,
 		Capabilities: message.CapAccelerometer | message.CapGyroscope,
 		FWVersion:    0x0102,
 	}
 	testMessage(registration, message.MsgTypeRegister, "Registration")
 
-	// 9. Fragment
 	fragment := &message.Fragment{
 		MessageID:      456,
 		FragmentNum:    1,
@@ -89,7 +80,6 @@ func main() {
 	}
 	testMessage(fragment, message.MsgTypeFragment, "Fragment")
 
-	// Тест декодирования известного пакета
 	fmt.Printf("\n=== Тест декодирования ===\n")
 	data := []byte{0x4b, 0x4e, 0x00, 0x01, 0x04, 0x13, 0x01, 0x39, 0x30, 0x00, 0x00, 0x01, 0x03, 0x9a, 0x99, 0x99, 0x3f, 0x9a, 0x99, 0x59, 0x40, 0x33, 0x33, 0xb3, 0x40, 0x30}
 	decoded, err := codec.Unmarshal(data, message.TransportCRC8)
@@ -105,8 +95,7 @@ func testMessage(msg message.Message, msgType message.MsgType, name string) {
 
 	fmt.Printf("Изначальное: %+v\n", msg)
 
-	// Кодируем
-	data, err := codec.Marshal(msg, msgType, message.TransportCRC8)
+	data, err := codec.Marshal(msg, 1, msgType, message.TransportCRC8)
 	if err != nil {
 		fmt.Printf("Ошибка кодирования: %v\n", err)
 		return

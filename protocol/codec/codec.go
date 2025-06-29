@@ -45,7 +45,7 @@ func newPacket(data []byte) *packet {
 	}
 }
 
-func Marshal(msg message.Message, msgType message.MsgType, transportType message.TransportCRC) ([]byte, error) {
+func Marshal(msg message.Message, packetID uint8, msgType message.MsgType, transportType message.TransportCRC) ([]byte, error) {
 	buf := newBuffer()
 
 	err := buf.encodePayload(msg)
@@ -53,7 +53,7 @@ func Marshal(msg message.Message, msgType message.MsgType, transportType message
 		return nil, err
 	}
 
-	err = buf.encodeHeader(0, msgType, uint8(len(buf.bufPayload.Bytes())))
+	err = buf.encodeHeader(packetID, msgType, uint8(len(buf.bufPayload.Bytes())))
 	if err != nil {
 		return nil, err
 	}

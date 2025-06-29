@@ -32,24 +32,11 @@ const (
 	StateError        ConnectionState = 0x04
 )
 
-type Connection interface {
-	Send(msg message.Message, crcType message.TransportCRC) (SendStatus, error)
-	Receive() (message.Message, error)
-	State() SendStatus
-	RemoteAddr() net.Addr
-}
-
-type Trasport interface {
-	Type() TypeTransport
-	Connection(address net.Addr) (Connection, error)
-	Listen(address string) (<-chan Connection, error)
-	Close() error
-}
-
 type Config struct {
 	Type           TypeTransport        `json:"type"`
 	Address        string               `json:"address"`
-	Timeout        time.Duration        `json:"timeout"`
+	WriteTimeout   time.Duration        `json:"write_timeout"`
+	ReadTimeout    time.Duration        `json:"read_timeout"`
 	DefaultCRCType message.TransportCRC `json:"default_crc_type"`
 
 	BaudRate int `json:"baud_rate,omitempty"`
@@ -60,3 +47,19 @@ type Config struct {
 	RetryAttempts int           `json:"retry_attempts"`
 	RetryDelay    time.Duration `json:"retry_delay"`
 }
+
+type Connection interface {
+	Send(msg message.Message, msgType message.MsgType) (SendStatus, error)
+	Receive() (message.Message, error)
+	State() ConnectionState
+	RemoteAddr() net.Addr
+	Close() error
+}
+
+type Transport interface {
+	Type() TypeTransport
+	Connection() (Connection, error)
+	Listen() (<-chan Connection, error)
+	Close() error
+}
+
