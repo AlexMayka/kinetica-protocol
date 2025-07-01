@@ -17,7 +17,7 @@ type TransportTCP struct {
 	cancel   context.CancelFunc
 }
 
-func NewTransportTCP(config *transport.Config) *TransportTCP {
+func NewTransportTCP(config *transport.Config) transport.Transport {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &TransportTCP{Config: config, ctx: ctx, cancel: cancel}
 }

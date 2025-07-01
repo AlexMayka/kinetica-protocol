@@ -35,8 +35,10 @@ func main() {
 	sensorData := &message.SensorData{
 		SensorID:  1,
 		TimeStamp: 12345,
-		Type:      message.Accelerometer,
-		Values:    []float32{1.2, 3.4, 5.6},
+		Data: message.Data{
+			Type:   message.Accelerometer,
+			Values: []float32{1.2, 3.4, 5.6},
+		},
 	}
 	testMessage(sensorData, message.MsgTypeSensorData, "SensorData")
 
@@ -79,6 +81,31 @@ func main() {
 		Data:           []byte{0x01, 0x02, 0x03, 0x04, 0x05},
 	}
 	testMessage(fragment, message.MsgTypeFragment, "Fragment")
+
+	originalHeartbeat := &message.SensorHeartbeat{
+		SensorID:  5,
+		TimeStamp: 54321,
+		Battery:   75,
+		Status:    message.Ok,
+	}
+	originalData, _ := codec.Marshal(originalHeartbeat, 3, message.MsgTypeHeartbeat, message.TransportNone)
+
+	relayedMessage := &message.RelayedMessage{
+		RelayID:      10,
+		OriginalData: originalData,
+	}
+	testMessage(relayedMessage, message.MsgTypeRelayed, "RelayedMessage")
+
+	sensorDataMulti := &message.SensorDataMulti{
+		SensorID:  1,
+		TimeStamp: 12345,
+		Data: []message.Data{
+			{Type: message.Accelerometer, Values: []float32{1.2, -0.5, 9.8}},
+			{Type: message.Gyroscope, Values: []float32{0.1, 0.2, 0.3}},
+			{Type: message.Quaternion, Values: []float32{0.0, 0.0, 0.0, 1.0}},
+		},
+	}
+	testMessage(sensorDataMulti, message.MsgTypeSensorDataMulti, "SensorDataMulti")
 
 	fmt.Printf("\n=== Тест декодирования ===\n")
 	data := []byte{0x4b, 0x4e, 0x00, 0x01, 0x04, 0x13, 0x01, 0x39, 0x30, 0x00, 0x00, 0x01, 0x03, 0x9a, 0x99, 0x99, 0x3f, 0x9a, 0x99, 0x59, 0x40, 0x33, 0x33, 0xb3, 0x40, 0x30}

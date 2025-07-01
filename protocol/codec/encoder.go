@@ -26,6 +26,10 @@ func (buf *buffer) encodePayload(msg message.Message) error {
 		return buf.encodeRegistration(m)
 	case *message.Fragment:
 		return buf.encodeFragment(m)
+	case *message.RelayedMessage:
+		return buf.encodeRelayedMessage(m)
+	case *message.SensorDataMulti:
+		return buf.encodeDataMulti(m)
 	default:
 		return ErrInvalidMessageType
 	}
@@ -115,10 +119,10 @@ func (buf *buffer) encodeData(msg *message.SensorData) error {
 		return err
 	}
 
-	buf.bufPayload.WriteByte(uint8(msg.Type))
-	buf.bufPayload.WriteByte(uint8(len(msg.Values)))
+	buf.bufPayload.WriteByte(uint8(msg.Data.Type))
+	buf.bufPayload.WriteByte(uint8(len(msg.Data.Values)))
 
-	for _, value := range msg.Values {
+	for _, value := range msg.Data.Values {
 		if err := buf.writeField(value, "sensor value"); err != nil {
 			return err
 		}
@@ -195,6 +199,45 @@ func (buf *buffer) encodeFragment(msg *message.Fragment) error {
 	}
 	if _, err := buf.bufPayload.Write(msg.Data); err != nil {
 		return fmt.Errorf("%w: fragment data encoding failed", ErrEncodingFailed)
+	}
+
+	return nil
+}
+
+func (buf *buffer) encodeRelayedMessage(msg *message.RelayedMessage) error {
+	buf.bufPayload.WriteByte(msg.RelayID)
+
+	if err := buf.writeField(uint16(len(msg.OriginalData)), "relayed data length"); err != nil {
+		return err
+	}
+
+	if err := buf.writeField(msg.OriginalData, "relayed data encoding failed"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (buf *buffer) encodeDataMulti(m *message.SensorDataMulti) error {
+	buf.bufPayload.WriteByte(m.SensorID)
+
+	if err := buf.writeField(m.TimeStamp, "timestamp"); err != nil {
+		return err
+	}
+
+	buf.bufPayload.WriteByte(uint8(len(m.Data)))
+
+	for _, data := range m.Data {
+		if err := buf.writeField(data.Type, "data"); err != nil {
+			return err
+		}
+
+		buf.bufPayload.WriteByte(uint8(len(data.Values)))
+		for _, value := range data.Values {
+			if err := buf.writeField(value, "data"); err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil

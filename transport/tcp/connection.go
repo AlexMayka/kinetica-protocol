@@ -66,7 +66,7 @@ func (c *ConnectionTCP) Send(msg message.Message, msgType message.MsgType) (tran
 
 	if c.writeTimeout > 0 {
 		if err := c.conn.SetWriteDeadline(time.Now().Add(c.writeTimeout)); err != nil {
-			return transport.SendFailed, fmt.Errorf("%w: failed to set write deadline: %w", transport.ErrSendFailed, err)
+			return transport.SendTimeout, fmt.Errorf("%w: failed to set write deadline: %w", transport.ErrSendFailed, err)
 		}
 	}
 

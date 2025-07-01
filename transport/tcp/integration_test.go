@@ -134,8 +134,10 @@ func TestTCP_FullWorkflow(t *testing.T) {
 	sensorData := &message.SensorData{
 		SensorID:  42,
 		TimeStamp: uint32(time.Now().Unix()),
-		Type:      message.Accelerometer,
-		Values:    []float32{1.0, 2.0, 3.0},
+		Data: message.Data{
+			Type:   message.Accelerometer,
+			Values: []float32{1.0, 2.0, 3.0},
+		},
 	}
 	status, err = clientConn.Send(sensorData, message.MsgTypeSensorData)
 	if err != nil {

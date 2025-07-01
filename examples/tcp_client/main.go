@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"kinetica-protocol/protocol/codec"
 	"kinetica-protocol/protocol/message"
 	"kinetica-protocol/transport"
 	"kinetica-protocol/transport/tcp"
@@ -63,29 +64,70 @@ func main() {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
+	messageCount := 0
 	for range ticker.C {
-		sensorData := &message.SensorData{
-			SensorID:  1,
-			TimeStamp: uint32(time.Now().Unix()),
-			Type:      message.Accelerometer,
-			Values:    []float32{1.2, -0.5, 9.8},
-		}
+		messageCount++
 
-		fmt.Printf("Sending sensor data: %v\n", sensorData.Values)
-		if _, err := conn.Send(sensorData, message.MsgTypeSensorData); err != nil {
-			fmt.Printf("Error sending data: %v\n", err)
-		}
+		switch messageCount % 4 {
+		case 1:
+			sensorData := &message.SensorData{
+				SensorID:  1,
+				TimeStamp: uint32(time.Now().Unix()),
+				Data: message.Data{
+					Type:   message.Accelerometer,
+					Values: []float32{1.2, -0.5, 9.8},
+				},
+			}
+			fmt.Printf("Sending sensor data: %v\n", sensorData.Data.Values)
+			if _, err := conn.Send(sensorData, message.MsgTypeSensorData); err != nil {
+				fmt.Printf("Error sending data: %v\n", err)
+			}
 
-		heartbeat := &message.SensorHeartbeat{
-			SensorID:  1,
-			TimeStamp: uint32(time.Now().Unix()),
-			Battery:   85,
-			Status:    message.Ok,
-		}
+		case 2:
+			sensorDataMulti := &message.SensorDataMulti{
+				SensorID:  1,
+				TimeStamp: uint32(time.Now().Unix()),
+				Data: []message.Data{
+					{Type: message.Accelerometer, Values: []float32{1.2, -0.5, 9.8}},
+					{Type: message.Gyroscope, Values: []float32{0.1, 0.2, 0.3}},
+					{Type: message.Quaternion, Values: []float32{0.0, 0.0, 0.0, 1.0}},
+				},
+			}
+			fmt.Printf("Sending multi sensor data: %d datasets\n", len(sensorDataMulti.Data))
+			if _, err := conn.Send(sensorDataMulti, message.MsgTypeSensorDataMulti); err != nil {
+				fmt.Printf("Error sending multi data: %v\n", err)
+			}
 
-		fmt.Printf("Sending heartbeat: battery=%d%%\n", heartbeat.Battery)
-		if _, err := conn.Send(heartbeat, message.MsgTypeHeartbeat); err != nil {
-			fmt.Printf("Error sending heartbeat: %v\n", err)
+		case 3:
+			heartbeat := &message.SensorHeartbeat{
+				SensorID:  1,
+				TimeStamp: uint32(time.Now().Unix()),
+				Battery:   85,
+				Status:    message.Ok,
+			}
+			fmt.Printf("Sending heartbeat: battery=%d%%\n", heartbeat.Battery)
+			if _, err := conn.Send(heartbeat, message.MsgTypeHeartbeat); err != nil {
+				fmt.Printf("Error sending heartbeat: %v\n", err)
+			}
+
+		case 0:
+			originalData := &message.SensorHeartbeat{
+				SensorID:  5,
+				TimeStamp: uint32(time.Now().Unix()),
+				Battery:   70,
+				Status:    message.Ok,
+			}
+
+			originalBytes, _ := codec.Marshal(originalData, 3, message.MsgTypeHeartbeat, message.TransportNone)
+
+			relayedMessage := &message.RelayedMessage{
+				RelayID:      10,
+				OriginalData: originalBytes,
+			}
+			fmt.Printf("Sending relayed message from sensor %d via relay %d\n", originalData.SensorID, relayedMessage.RelayID)
+			if _, err := conn.Send(relayedMessage, message.MsgTypeRelayed); err != nil {
+				fmt.Printf("Error sending relayed message: %v\n", err)
+			}
 		}
 	}
 }

@@ -51,12 +51,12 @@ Transport CRC Types:
 | Registration | 0x08 | 11B | 11B | 11B | Sensor registration |
 | Fragment | 0x09 | 12B | 512B | ~64KB | Message fragmentation |
 
-### Extended Messages (Planned)
+### Extended Messages
 
 | Message Type | ID | Min Size | Typical Size | Max Size | Description |
 |--------------|----|---------:|-------------:|---------:|-------------|
-| RelayedMessage | 0x0A | 18B | 43B | ~64KB | Relayed through ESP-NOW |
-| SensorDataMulti | 0x0B | 15B | 77B | 77B | Multiple sensor data |
+| RelayedMessage | 0x0A | 10B | 34B | ~64KB | Relayed through ESP-NOW |
+| SensorDataMulti | 0x0B | 15B | 77B | 77B | Multiple sensor data (planned) |
 
 ## Device Types
 

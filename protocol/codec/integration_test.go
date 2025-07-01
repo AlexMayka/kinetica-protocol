@@ -39,8 +39,10 @@ func TestCodec_Integration_MarshalUnmarshal(t *testing.T) {
 	sensorData := &message.SensorData{
 		SensorID:  1,
 		TimeStamp: uint32(time.Now().Unix()),
-		Type:      message.Accelerometer,
-		Values:    []float32{1.2, -0.5, 9.8},
+		Data: message.Data{
+			Type:   message.Accelerometer,
+			Values: []float32{1.2, -0.5, 9.8},
+		},
 	}
 
 	data, err = codec.Marshal(sensorData, 1, message.MsgTypeSensorData, message.TransportNone)
@@ -59,7 +61,7 @@ func TestCodec_Integration_MarshalUnmarshal(t *testing.T) {
 		t.Fatalf("Expected SensorData, got %T", unmarshaled)
 	}
 
-	if sd.SensorID != sensorData.SensorID || sd.Type != sensorData.Type || len(sd.Values) != len(sensorData.Values) {
+	if sd.SensorID != sensorData.SensorID || sd.Data.Type != sensorData.Data.Type || len(sd.Data.Values) != len(sensorData.Data.Values) {
 		t.Error("Sensor data mismatch after marshal/unmarshal")
 	}
 
@@ -114,5 +116,36 @@ func TestCodec_Integration_MarshalUnmarshal(t *testing.T) {
 
 	if ackResult.SensorID != ack.SensorID || ackResult.MessageID != ack.MessageID || ackResult.Status != ack.Status {
 		t.Error("ACK data mismatch after marshal/unmarshal")
+	}
+
+	// Test SensorDataMulti
+	sensorDataMulti := &message.SensorDataMulti{
+		SensorID:  1,
+		TimeStamp: uint32(time.Now().Unix()),
+		Data: []message.Data{
+			{Type: message.Accelerometer, Values: []float32{1.2, -0.5, 9.8}},
+			{Type: message.Gyroscope, Values: []float32{0.1, 0.2, 0.3}},
+			{Type: message.Quaternion, Values: []float32{0.0, 0.0, 0.0, 1.0}},
+		},
+	}
+
+	data, err = codec.Marshal(sensorDataMulti, 1, message.MsgTypeSensorDataMulti, message.TransportNone)
+	if err != nil {
+		t.Fatalf("Marshal sensor data multi failed: %v", err)
+	}
+	t.Logf("SensorDataMulti marshaled to %d bytes", len(data))
+
+	unmarshaled, err = codec.Unmarshal(data, message.TransportNone)
+	if err != nil {
+		t.Fatalf("Unmarshal sensor data multi failed: %v", err)
+	}
+
+	sdm, ok := unmarshaled.(*message.SensorDataMulti)
+	if !ok {
+		t.Fatalf("Expected SensorDataMulti, got %T", unmarshaled)
+	}
+
+	if sdm.SensorID != sensorDataMulti.SensorID || len(sdm.Data) != len(sensorDataMulti.Data) {
+		t.Error("SensorDataMulti data mismatch after marshal/unmarshal")
 	}
 }

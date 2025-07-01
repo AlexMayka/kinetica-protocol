@@ -150,6 +150,32 @@ func TestConnectionTCP_Send(t *testing.T) {
 			wantErr:        true,
 			errType:        transport.ErrMsgLarge,
 		},
+		{
+			name: "sensor data multi",
+			msg: &message.SensorDataMulti{
+				SensorID:  1,
+				TimeStamp: 12345,
+				Data: []message.Data{
+					{Type: message.Accelerometer, Values: []float32{1.0, 2.0, 3.0}},
+					{Type: message.Gyroscope, Values: []float32{4.0, 5.0, 6.0}},
+				},
+			},
+			msgType: message.MsgTypeSensorDataMulti,
+			setupMock: func(m *mockConn) {},
+			expectedStatus: transport.SendSuccess,
+			wantErr: false,
+		},
+		{
+			name: "relayed message",
+			msg: &message.RelayedMessage{
+				RelayID:      10,
+				OriginalData: []byte{0x4B, 0x4E, 0x01, 0x04, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05},
+			},
+			msgType: message.MsgTypeRelayed,
+			setupMock: func(m *mockConn) {},
+			expectedStatus: transport.SendSuccess,
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {

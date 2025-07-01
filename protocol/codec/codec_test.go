@@ -32,8 +32,10 @@ func TestMarshal_SensorData(t *testing.T) {
 	msg := &message.SensorData{
 		SensorID:  1,
 		TimeStamp: 12345,
-		Type:      message.Accelerometer,
-		Values:    []float32{1.2, -0.5, 9.8},
+		Data: message.Data{
+			Type:   message.Accelerometer,
+			Values: []float32{1.2, -0.5, 9.8},
+		},
 	}
 
 	data, err := Marshal(msg, 1, message.MsgTypeSensorData, message.TransportNone)
@@ -121,6 +123,80 @@ func TestMarshal_CustomData(t *testing.T) {
 	}
 }
 
+func TestMarshal_RelayedMessage(t *testing.T) {
+	// First create a simple sensor data packet
+	originalMsg := &message.SensorData{
+		SensorID:  1,
+		TimeStamp: 12345,
+		Data: message.Data{
+			Type:   message.Accelerometer,
+			Values: []float32{1.0, 2.0, 3.0},
+		},
+	}
+
+	originalData, err := Marshal(originalMsg, 1, message.MsgTypeSensorData, message.TransportNone)
+	if err != nil {
+		t.Fatalf("Failed to marshal original message: %v", err)
+	}
+
+	// Now create relayed message
+	msg := &message.RelayedMessage{
+		RelayID:      10,
+		OriginalData: originalData,
+	}
+
+	data, err := Marshal(msg, 2, message.MsgTypeRelayed, message.TransportNone)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	if len(data) == 0 {
+		t.Fatal("Marshal returned empty data")
+	}
+
+	if data[0] != 'K' || data[1] != 'N' {
+		t.Errorf("Expected magic bytes 'KN', got %c%c", data[0], data[1])
+	}
+
+	// Size should be header(6) + relayID(1) + dataLength(2) + originalData(25)
+	expectedSize := 6 + 1 + 2 + len(originalData)
+	if len(data) != expectedSize {
+		t.Errorf("Expected size %d, got %d", expectedSize, len(data))
+	}
+}
+
+func TestMarshal_SensorDataMulti(t *testing.T) {
+	msg := &message.SensorDataMulti{
+		SensorID:  1,
+		TimeStamp: 12345,
+		Data: []message.Data{
+			{Type: message.Accelerometer, Values: []float32{1.0, 2.0, 3.0}},
+			{Type: message.Gyroscope, Values: []float32{4.0, 5.0, 6.0}},
+			{Type: message.Quaternion, Values: []float32{0.0, 0.0, 0.0, 1.0}},
+		},
+	}
+
+	data, err := Marshal(msg, 1, message.MsgTypeSensorDataMulti, message.TransportNone)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	if len(data) == 0 {
+		t.Fatal("Marshal returned empty data")
+	}
+
+	if data[0] != 'K' || data[1] != 'N' {
+		t.Errorf("Expected magic bytes 'KN', got %c%c", data[0], data[1])
+	}
+
+	// Size should be header(6) + sensorID(1) + timestamp(4) + dataCount(1) + 
+	// 3 data blocks: [type(1) + valueCount(1) + values(3*4)] + [type(1) + valueCount(1) + values(3*4)] + [type(1) + valueCount(1) + values(4*4)]
+	expectedSize := 6 + 1 + 4 + 1 + (1+1+12) + (1+1+12) + (1+1+16)
+	if len(data) != expectedSize {
+		t.Errorf("Expected size %d, got %d", expectedSize, len(data))
+	}
+}
+
 func TestMarshal_AllCRCTypes(t *testing.T) {
 	msg := &message.SensorHeartbeat{
 		SensorID:  1,
@@ -196,8 +272,10 @@ func TestUnmarshal_SensorData(t *testing.T) {
 	originalMsg := &message.SensorData{
 		SensorID:  1,
 		TimeStamp: 12345,
-		Type:      message.Accelerometer,
-		Values:    []float32{1.2, -0.5, 9.8},
+		Data: message.Data{
+			Type:   message.Accelerometer,
+			Values: []float32{1.2, -0.5, 9.8},
+		},
 	}
 
 	data, err := Marshal(originalMsg, 1, message.MsgTypeSensorData, message.TransportNone)
@@ -221,11 +299,11 @@ func TestUnmarshal_SensorData(t *testing.T) {
 	if sensorData.TimeStamp != originalMsg.TimeStamp {
 		t.Errorf("TimeStamp mismatch: expected %d, got %d", originalMsg.TimeStamp, sensorData.TimeStamp)
 	}
-	if sensorData.Type != originalMsg.Type {
-		t.Errorf("Type mismatch: expected %d, got %d", originalMsg.Type, sensorData.Type)
+	if sensorData.Data.Type != originalMsg.Data.Type {
+		t.Errorf("Type mismatch: expected %d, got %d", originalMsg.Data.Type, sensorData.Data.Type)
 	}
-	if len(sensorData.Values) != len(originalMsg.Values) {
-		t.Errorf("Values length mismatch: expected %d, got %d", len(originalMsg.Values), len(sensorData.Values))
+	if len(sensorData.Data.Values) != len(originalMsg.Data.Values) {
+		t.Errorf("Values length mismatch: expected %d, got %d", len(originalMsg.Data.Values), len(sensorData.Data.Values))
 	}
 }
 
@@ -299,6 +377,111 @@ func TestUnmarshal_Ack(t *testing.T) {
 	}
 }
 
+func TestUnmarshal_RelayedMessage(t *testing.T) {
+	// First create original message
+	originalMsg := &message.SensorHeartbeat{
+		SensorID:  5,
+		TimeStamp: 54321,
+		Battery:   75,
+		Status:    message.Ok,
+	}
+
+	originalData, err := Marshal(originalMsg, 3, message.MsgTypeHeartbeat, message.TransportNone)
+	if err != nil {
+		t.Fatalf("Failed to marshal original message: %v", err)
+	}
+
+	// Create relayed message
+	relayedMsg := &message.RelayedMessage{
+		RelayID:      20,
+		OriginalData: originalData,
+	}
+
+	data, err := Marshal(relayedMsg, 4, message.MsgTypeRelayed, message.TransportNone)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	// Unmarshal
+	msg, err := Unmarshal(data, message.TransportNone)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	relayed, ok := msg.(*message.RelayedMessage)
+	if !ok {
+		t.Fatalf("Expected RelayedMessage, got %T", msg)
+	}
+
+	if relayed.RelayID != relayedMsg.RelayID {
+		t.Errorf("RelayID mismatch: expected %d, got %d", relayedMsg.RelayID, relayed.RelayID)
+	}
+
+	if len(relayed.OriginalData) != len(originalData) {
+		t.Errorf("OriginalData length mismatch: expected %d, got %d", len(originalData), len(relayed.OriginalData))
+	}
+
+	// Now unmarshal the original data
+	innerMsg, err := Unmarshal(relayed.OriginalData, message.TransportNone)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal inner message: %v", err)
+	}
+
+	heartbeat, ok := innerMsg.(*message.SensorHeartbeat)
+	if !ok {
+		t.Fatalf("Expected inner message to be SensorHeartbeat, got %T", innerMsg)
+	}
+
+	if heartbeat.SensorID != originalMsg.SensorID || heartbeat.Battery != originalMsg.Battery {
+		t.Error("Inner message data mismatch after relay")
+	}
+}
+
+func TestUnmarshal_SensorDataMulti(t *testing.T) {
+	originalMsg := &message.SensorDataMulti{
+		SensorID:  1,
+		TimeStamp: 12345,
+		Data: []message.Data{
+			{Type: message.Accelerometer, Values: []float32{1.0, 2.0, 3.0}},
+			{Type: message.Gyroscope, Values: []float32{4.0, 5.0, 6.0}},
+		},
+	}
+
+	data, err := Marshal(originalMsg, 1, message.MsgTypeSensorDataMulti, message.TransportNone)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	msg, err := Unmarshal(data, message.TransportNone)
+	if err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	sensorDataMulti, ok := msg.(*message.SensorDataMulti)
+	if !ok {
+		t.Fatalf("Expected SensorDataMulti, got %T", msg)
+	}
+
+	if sensorDataMulti.SensorID != originalMsg.SensorID {
+		t.Errorf("SensorID mismatch: expected %d, got %d", originalMsg.SensorID, sensorDataMulti.SensorID)
+	}
+	if sensorDataMulti.TimeStamp != originalMsg.TimeStamp {
+		t.Errorf("TimeStamp mismatch: expected %d, got %d", originalMsg.TimeStamp, sensorDataMulti.TimeStamp)
+	}
+	if len(sensorDataMulti.Data) != len(originalMsg.Data) {
+		t.Errorf("Data length mismatch: expected %d, got %d", len(originalMsg.Data), len(sensorDataMulti.Data))
+	}
+
+	for i, data := range sensorDataMulti.Data {
+		if data.Type != originalMsg.Data[i].Type {
+			t.Errorf("Data[%d].Type mismatch: expected %d, got %d", i, originalMsg.Data[i].Type, data.Type)
+		}
+		if len(data.Values) != len(originalMsg.Data[i].Values) {
+			t.Errorf("Data[%d].Values length mismatch: expected %d, got %d", i, len(originalMsg.Data[i].Values), len(data.Values))
+		}
+	}
+}
+
 func TestUnmarshal_ErrorCases(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -362,8 +545,10 @@ func TestMarshal_Unmarshal_RoundTrip(t *testing.T) {
 			msg: &message.SensorData{
 				SensorID:  42,
 				TimeStamp: 12345,
-				Type:      message.Accelerometer,
-				Values:    []float32{1.0, 2.0, 3.0},
+				Data: message.Data{
+					Type:   message.Accelerometer,
+					Values: []float32{1.0, 2.0, 3.0},
+				},
 			},
 			msgType: message.MsgTypeSensorData,
 		},
@@ -385,6 +570,26 @@ func TestMarshal_Unmarshal_RoundTrip(t *testing.T) {
 				Status:    message.AckOK,
 			},
 			msgType: message.MsgTypeAck,
+		},
+		{
+			name: "SensorDataMulti",
+			msg: &message.SensorDataMulti{
+				SensorID:  42,
+				TimeStamp: 12345,
+				Data: []message.Data{
+					{Type: message.Accelerometer, Values: []float32{1.0, 2.0, 3.0}},
+					{Type: message.Gyroscope, Values: []float32{4.0, 5.0, 6.0}},
+				},
+			},
+			msgType: message.MsgTypeSensorDataMulti,
+		},
+		{
+			name: "RelayedMessage",
+			msg: &message.RelayedMessage{
+				RelayID:      10,
+				OriginalData: []byte{0x4B, 0x4E, 0x01, 0x04, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05},
+			},
+			msgType: message.MsgTypeRelayed,
 		},
 	}
 

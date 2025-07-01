@@ -11,15 +11,17 @@ const (
 )
 
 const (
-	MsgTypeCommand    MsgType = 0x01
-	MsgTypeConfig     MsgType = 0x02
-	MsgTypeHeartbeat  MsgType = 0x03
-	MsgTypeSensorData MsgType = 0x04
-	MsgTypeCustom     MsgType = 0x05
-	MsgTypeTimeSync   MsgType = 0x06
-	MsgTypeAck        MsgType = 0x07
-	MsgTypeRegister   MsgType = 0x08
-	MsgTypeFragment   MsgType = 0x09
+	MsgTypeCommand         MsgType = 0x01
+	MsgTypeConfig          MsgType = 0x02
+	MsgTypeHeartbeat       MsgType = 0x03
+	MsgTypeSensorData      MsgType = 0x04
+	MsgTypeCustom          MsgType = 0x05
+	MsgTypeTimeSync        MsgType = 0x06
+	MsgTypeAck             MsgType = 0x07
+	MsgTypeRegister        MsgType = 0x08
+	MsgTypeFragment        MsgType = 0x09
+	MsgTypeRelayed         MsgType = 0x0A
+	MsgTypeSensorDataMulti MsgType = 0x0B
 )
 
 const HeaderSize = 6

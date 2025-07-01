@@ -59,8 +59,12 @@ func handleConnection(conn transport.Connection) {
 			msgType = message.MsgTypeRegister
 		case *message.SensorData:
 			msgType = message.MsgTypeSensorData
+		case *message.SensorDataMulti:
+			msgType = message.MsgTypeSensorDataMulti
 		case *message.SensorHeartbeat:
 			msgType = message.MsgTypeHeartbeat
+		case *message.RelayedMessage:
+			msgType = message.MsgTypeRelayed
 		case *message.Ack:
 			msgType = message.MsgTypeAck
 		default:
@@ -86,10 +90,30 @@ func handleConnection(conn transport.Connection) {
 			}
 
 		case *message.SensorData:
-			fmt.Printf("📊 [%s] Sensor data from %d: %v (%d bytes)\n", time.Now().Format("15:04:05.000"), m.SensorID, m.Values, packetSize)
+			fmt.Printf("📊 [%s] Sensor data from %d: type=%d, values=%v (%d bytes)\n", time.Now().Format("15:04:05.000"), m.SensorID, m.Data.Type, m.Data.Values, packetSize)
+
+		case *message.SensorDataMulti:
+			fmt.Printf("📊📊 [%s] Multi sensor data from %d: %d datasets (%d bytes)\n", time.Now().Format("15:04:05.000"), m.SensorID, len(m.Data), packetSize)
+			for i, data := range m.Data {
+				fmt.Printf("     Dataset %d: type=%d, values=%v\n", i+1, data.Type, data.Values)
+			}
 
 		case *message.SensorHeartbeat:
 			fmt.Printf("💓 [%s] Heartbeat from sensor %d, battery: %d%% (%d bytes)\n", time.Now().Format("15:04:05.000"), m.SensorID, m.Battery, packetSize)
+
+		case *message.RelayedMessage:
+			fmt.Printf("🔄 [%s] Relayed message from relay %d, original data: %d bytes (%d bytes total)\n", time.Now().Format("15:04:05.000"), m.RelayID, len(m.OriginalData), packetSize)
+			// Декодируем оригинальное сообщение для демонстрации
+			if originalMsg, err := codec.Unmarshal(m.OriginalData, message.TransportNone); err == nil {
+				switch orig := originalMsg.(type) {
+				case *message.SensorHeartbeat:
+					fmt.Printf("     Original: Heartbeat from sensor %d, battery: %d%%\n", orig.SensorID, orig.Battery)
+				case *message.SensorData:
+					fmt.Printf("     Original: Sensor data from %d, values: %v\n", orig.SensorID, orig.Data.Values)
+				default:
+					fmt.Printf("     Original: %T\n", originalMsg)
+				}
+			}
 
 		default:
 			fmt.Printf("❓ Received message type: %T\n", msg)
@@ -150,31 +174,72 @@ func runClient() {
 		}
 	}()
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 6; i++ {
 		time.Sleep(1 * time.Second)
 
-		sensorData := &message.SensorData{
-			SensorID:  1,
-			TimeStamp: uint32(time.Now().Unix()),
-			Type:      message.Accelerometer,
-			Values:    []float32{1.2 + float32(i)*0.1, -0.5, 9.8},
-		}
+		switch i % 4 {
+		case 0:
+			// Обычные данные сенсора
+			sensorData := &message.SensorData{
+				SensorID:  1,
+				TimeStamp: uint32(time.Now().Unix()),
+				Data: message.Data{
+					Type:   message.Accelerometer,
+					Values: []float32{1.2 + float32(i)*0.1, -0.5, 9.8},
+				},
+			}
+			fmt.Printf("📤 [%s] Sending sensor data #%d: %v\n", time.Now().Format("15:04:05.000"), i+1, sensorData.Data.Values)
+			if _, err := conn.Send(sensorData, message.MsgTypeSensorData); err != nil {
+				fmt.Printf("❌ Error sending data: %v\n", err)
+			}
 
-		fmt.Printf("📤 [%s] Sending sensor data #%d: %v\n", time.Now().Format("15:04:05.000"), i+1, sensorData.Values)
-		if _, err := conn.Send(sensorData, message.MsgTypeSensorData); err != nil {
-			fmt.Printf("❌ Error sending data: %v\n", err)
-		}
+		case 1:
+			// Объединенные данные нескольких сенсоров
+			sensorDataMulti := &message.SensorDataMulti{
+				SensorID:  1,
+				TimeStamp: uint32(time.Now().Unix()),
+				Data: []message.Data{
+					{Type: message.Accelerometer, Values: []float32{1.2 + float32(i)*0.1, -0.5, 9.8}},
+					{Type: message.Gyroscope, Values: []float32{0.1, 0.2 + float32(i)*0.05, 0.3}},
+					{Type: message.Quaternion, Values: []float32{0.0, 0.0, 0.0, 1.0}},
+				},
+			}
+			fmt.Printf("📤 [%s] Sending multi sensor data #%d: %d datasets\n", time.Now().Format("15:04:05.000"), i+1, len(sensorDataMulti.Data))
+			if _, err := conn.Send(sensorDataMulti, message.MsgTypeSensorDataMulti); err != nil {
+				fmt.Printf("❌ Error sending multi data: %v\n", err)
+			}
 
-		heartbeat := &message.SensorHeartbeat{
-			SensorID:  1,
-			TimeStamp: uint32(time.Now().Unix()),
-			Battery:   uint8(85 - i),
-			Status:    message.Ok,
-		}
+		case 2:
+			// Сердцебиение
+			heartbeat := &message.SensorHeartbeat{
+				SensorID:  1,
+				TimeStamp: uint32(time.Now().Unix()),
+				Battery:   uint8(85 - i),
+				Status:    message.Ok,
+			}
+			fmt.Printf("📤 [%s] Sending heartbeat #%d: battery=%d%%\n", time.Now().Format("15:04:05.000"), i+1, heartbeat.Battery)
+			if _, err := conn.Send(heartbeat, message.MsgTypeHeartbeat); err != nil {
+				fmt.Printf("❌ Error sending heartbeat: %v\n", err)
+			}
 
-		fmt.Printf("📤 [%s] Sending heartbeat #%d: battery=%d%%\n", time.Now().Format("15:04:05.000"), i+1, heartbeat.Battery)
-		if _, err := conn.Send(heartbeat, message.MsgTypeHeartbeat); err != nil {
-			fmt.Printf("❌ Error sending heartbeat: %v\n", err)
+		case 3:
+			// Ретранслированное сообщение (имитация ESP-NOW)
+			originalData := &message.SensorHeartbeat{
+				SensorID:  5,
+				TimeStamp: uint32(time.Now().Unix()),
+				Battery:   uint8(70 - i),
+				Status:    message.Ok,
+			}
+			originalBytes, _ := codec.Marshal(originalData, 3, message.MsgTypeHeartbeat, message.TransportNone)
+			
+			relayedMessage := &message.RelayedMessage{
+				RelayID:      uint8(10 + i),
+				OriginalData: originalBytes,
+			}
+			fmt.Printf("📤 [%s] Sending relayed message #%d: from sensor %d via relay %d\n", time.Now().Format("15:04:05.000"), i+1, originalData.SensorID, relayedMessage.RelayID)
+			if _, err := conn.Send(relayedMessage, message.MsgTypeRelayed); err != nil {
+				fmt.Printf("❌ Error sending relayed message: %v\n", err)
+			}
 		}
 	}
 

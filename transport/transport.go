@@ -27,9 +27,7 @@ const (
 
 const (
 	StateConnect      ConnectionState = 0x01
-	StateConnecting   ConnectionState = 0x02
 	StateDisconnected ConnectionState = 0x03
-	StateError        ConnectionState = 0x04
 )
 
 type Config struct {
@@ -62,4 +60,3 @@ type Transport interface {
 	Listen() (<-chan Connection, error)
 	Close() error
 }
-

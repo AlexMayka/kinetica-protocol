@@ -11,7 +11,7 @@ import (
 func TestTransportTCP_Type(t *testing.T) {
 	config := &transport.Config{Address: "localhost:8080"}
 	tp := NewTransportTCP(config)
-	
+
 	if tp.Type() != transport.TCP {
 		t.Errorf("Expected type %v, got %v", transport.TCP, tp.Type())
 	}
@@ -19,10 +19,10 @@ func TestTransportTCP_Type(t *testing.T) {
 
 func TestTransportTCP_ConvertAddr(t *testing.T) {
 	tests := []struct {
-		name      string
-		config    *transport.Config
-		wantErr   bool
-		errType   error
+		name    string
+		config  *transport.Config
+		wantErr bool
+		errType error
 	}{
 		{
 			name:    "valid address",
@@ -93,7 +93,7 @@ func TestTransportTCP_Connection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to start test server: %v", err)
 	}
-	defer listener.Close()
+	defer func(listener net.Listener) { _ = listener.Close() }(listener)
 
 	serverAddr := listener.Addr().String()
 
@@ -103,7 +103,7 @@ func TestTransportTCP_Connection(t *testing.T) {
 			if err != nil {
 				return
 			}
-			conn.Close()
+			_ = conn.Close()
 		}
 	}()
 
@@ -146,7 +146,7 @@ func TestTransportTCP_Connection(t *testing.T) {
 				if err == nil {
 					t.Error("Expected error, got nil")
 					if conn != nil {
-						conn.Close()
+						_ = conn.Close()
 					}
 					return
 				}
@@ -166,7 +166,7 @@ func TestTransportTCP_Connection(t *testing.T) {
 				return
 			}
 
-			conn.Close()
+			_ = conn.Close()
 		})
 	}
 }
@@ -212,7 +212,7 @@ func TestTransportTCP_Listen(t *testing.T) {
 				if err == nil {
 					t.Error("Expected error, got nil")
 					if ch != nil {
-						tp.Close()
+						_ = tp.Close()
 					}
 					return
 				}
@@ -236,7 +236,7 @@ func TestTransportTCP_Listen(t *testing.T) {
 				addr := tp.listener.Addr().String()
 				conn, err := net.Dial("tcp", addr)
 				if err == nil {
-					conn.Close()
+					_ = conn.Close()
 				}
 			}()
 
@@ -245,13 +245,13 @@ func TestTransportTCP_Listen(t *testing.T) {
 				if conn == nil {
 					t.Error("Received nil connection")
 				} else {
-					conn.Close()
+					_ = conn.Close()
 				}
 			case <-time.After(time.Second):
 				t.Error("Timeout waiting for connection")
 			}
 
-			tp.Close()
+			_ = tp.Close()
 		})
 	}
 }
@@ -291,7 +291,7 @@ func TestTransportTCP_ContextCancellation(t *testing.T) {
 		t.Fatalf("Failed to start listener: %v", err)
 	}
 
-	tp.Close()
+	_ = tp.Close()
 
 	select {
 	case _, ok := <-ch:

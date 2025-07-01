@@ -43,6 +43,10 @@ func (p *packet) decodePayload() error {
 		return p.decodeRegistration(buf)
 	case message.MsgTypeFragment:
 		return p.decodeFragment(buf)
+	case message.MsgTypeRelayed:
+		return p.decodeRelayedMessage(buf)
+	case message.MsgTypeSensorDataMulti:
+		return p.decodeDataMulti(buf)
 	}
 
 	return nil
@@ -177,7 +181,7 @@ func (p *packet) decodeData(buf *bytes.Buffer) error {
 	if err := p.readField(buf, &data.TimeStamp, "timestamp"); err != nil {
 		return err
 	}
-	if err := p.readField(buf, &data.Type, "data type"); err != nil {
+	if err := p.readField(buf, &data.Data.Type, "data type"); err != nil {
 		return err
 	}
 
@@ -191,7 +195,7 @@ func (p *packet) decodeData(buf *bytes.Buffer) error {
 		if err := p.readField(buf, &item, "sensor value"); err != nil {
 			return err
 		}
-		data.Values = append(data.Values, item)
+		data.Data.Values = append(data.Data.Values, item)
 	}
 
 	p.payload = &data
@@ -303,6 +307,68 @@ func (p *packet) decodeFragment(buf *bytes.Buffer) error {
 	data.Data = make([]byte, dataLength)
 	if _, err := buf.Read(data.Data); err != nil {
 		return err
+	}
+
+	p.payload = &data
+	return nil
+}
+
+func (p *packet) decodeRelayedMessage(buf *bytes.Buffer) error {
+	data := message.RelayedMessage{}
+
+	if err := p.readField(buf, &data.RelayID, "relay ID"); err != nil {
+		return err
+	}
+
+	var dataLength uint16
+	if err := p.readField(buf, &dataLength, "original data length"); err != nil {
+		return err
+	}
+
+	data.OriginalData = make([]byte, dataLength)
+	if _, err := buf.Read(data.OriginalData); err != nil {
+		return fmt.Errorf("%w: failed to read original data", ErrDecodingFailed)
+	}
+
+	p.payload = &data
+	return nil
+}
+
+func (p *packet) decodeDataMulti(buf *bytes.Buffer) error {
+	data := message.SensorDataMulti{}
+
+	if err := p.readField(buf, &data.SensorID, "sensor ID"); err != nil {
+		return err
+	}
+
+	if err := p.readField(buf, &data.TimeStamp, "timestamp"); err != nil {
+		return err
+	}
+
+	var lengthData uint8
+	if err := p.readField(buf, &lengthData, "length"); err != nil {
+		return err
+	}
+
+	data.Data = make([]message.Data, lengthData)
+
+	for i := 0; i < int(lengthData); i++ {
+		if err := p.readField(buf, &data.Data[i].Type, "type data"); err != nil {
+			return err
+		}
+
+		var lengthItem uint8
+		if err := p.readField(buf, &lengthItem, fmt.Sprintf("length elem %v", i)); err != nil {
+			return err
+		}
+
+		for j := 0; j < int(lengthItem); j++ {
+			var item float32
+			if err := p.readField(buf, &item, "sensor value"); err != nil {
+				return err
+			}
+			data.Data[i].Values = append(data.Data[i].Values, item)
+		}
 	}
 
 	p.payload = &data

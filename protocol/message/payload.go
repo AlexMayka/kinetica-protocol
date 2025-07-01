@@ -94,8 +94,7 @@ type SensorHeartbeat struct {
 type SensorData struct {
 	SensorID  uint8
 	TimeStamp uint32
-	Type      DataType
-	Values    []float32
+	Data      Data
 }
 
 type CustomData struct {
@@ -129,6 +128,22 @@ type Fragment struct {
 	FragmentNum    uint8
 	TotalFragments uint8
 	Data           []byte
+}
+
+type RelayedMessage struct {
+	RelayID      uint8
+	OriginalData []byte
+}
+
+type Data struct {
+	Type   DataType
+	Values []float32
+}
+
+type SensorDataMulti struct {
+	SensorID  uint8
+	TimeStamp uint32
+	Data      []Data
 }
 
 func (s *SensorCommand) MessageType() MsgType {
@@ -165,4 +180,12 @@ func (r *Registration) MessageType() MsgType {
 
 func (f *Fragment) MessageType() MsgType {
 	return MsgTypeFragment
+}
+
+func (r *RelayedMessage) MessageType() MsgType {
+	return MsgTypeRelayed
+}
+
+func (d *SensorDataMulti) MessageType() MsgType {
+	return MsgTypeSensorDataMulti
 }

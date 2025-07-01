@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"kinetica-protocol/protocol/codec"
 	"kinetica-protocol/protocol/message"
 	"kinetica-protocol/transport"
 	"kinetica-protocol/transport/tcp"
@@ -58,10 +59,33 @@ func handleConnection(conn transport.Connection) {
 			}
 
 		case *message.SensorData:
-			fmt.Printf("Sensor data from %d: %v\n", m.SensorID, m.Values)
+			fmt.Printf("Sensor data from %d: type=%d, values=%v\n", m.SensorID, m.Data.Type, m.Data.Values)
+
+		case *message.SensorDataMulti:
+			fmt.Printf("Multi sensor data from %d: %d datasets\n", m.SensorID, len(m.Data))
+			for i, data := range m.Data {
+				fmt.Printf("  Dataset %d: type=%d, values=%v\n", i+1, data.Type, data.Values)
+			}
 
 		case *message.SensorHeartbeat:
 			fmt.Printf("Heartbeat from sensor %d, battery: %d%%\n", m.SensorID, m.Battery)
+
+		case *message.RelayedMessage:
+			fmt.Printf("Relayed message from relay %d, original data length: %d bytes\n", m.RelayID, len(m.OriginalData))
+
+			originalMsg, err := codec.Unmarshal(m.OriginalData, message.TransportNone)
+			if err != nil {
+				fmt.Printf("  Failed to decode original message: %v\n", err)
+			} else {
+				switch orig := originalMsg.(type) {
+				case *message.SensorHeartbeat:
+					fmt.Printf("  Original: Heartbeat from sensor %d, battery: %d%%\n", orig.SensorID, orig.Battery)
+				case *message.SensorData:
+					fmt.Printf("  Original: Sensor data from %d, values: %v\n", orig.SensorID, orig.Data.Values)
+				default:
+					fmt.Printf("  Original: %T\n", originalMsg)
+				}
+			}
 
 		default:
 			fmt.Printf("Received message type: %T\n", msg)
