@@ -1,3 +1,6 @@
+// Package main demonstrates basic usage of the Kinetica protocol codec.
+// This example shows how to encode and decode different message types
+// using the protocol's binary format with CRC8 transport layer.
 package main
 
 import (
@@ -7,31 +10,16 @@ import (
 )
 
 func main() {
-	command := &message.SensorCommand{
-		SensorID:  1,
-		TimeStamp: 12345,
-		Command:   0x10,
-	}
-	testMessage(command, message.MsgTypeCommand, "SensorCommand")
-
-	config := &message.SensorConfig{
-		SensorID:  1,
-		TimeStamp: 12345,
-		Config: []message.Item{
-			{Key: message.ConfigKeySampleRate, Length: 4, Value: []byte{0x64, 0x00, 0x00, 0x00}},
-			{Key: message.ConfigKeyRange, Length: 2, Value: []byte{0x08, 0x00}},
-		},
-	}
-	testMessage(config, message.MsgTypeConfig, "SensorConfig")
-
+	// Simple heartbeat message
 	heartbeat := &message.SensorHeartbeat{
 		SensorID:  1,
 		TimeStamp: 12345,
 		Battery:   85,
 		Status:    message.Ok,
 	}
-	testMessage(heartbeat, message.MsgTypeHeartbeat, "SensorHeartbeat")
+	testMessage(heartbeat, message.MsgTypeHeartbeat, "Heartbeat")
 
+	// Sensor data message
 	sensorData := &message.SensorData{
 		SensorID:  1,
 		TimeStamp: 12345,
@@ -42,98 +30,45 @@ func main() {
 	}
 	testMessage(sensorData, message.MsgTypeSensorData, "SensorData")
 
-	customData := &message.CustomData{
-		SensorID:  1,
-		TimeStamp: 12345,
-		DataType:  message.CustomTypeLog,
-		Data: []message.Item{
-			{Key: message.ConfigKeyDeviceName, Length: 5, Value: []byte("Test1")},
-		},
-	}
-	testMessage(customData, message.MsgTypeCustom, "CustomData")
-
-	timeSync := &message.TimeSync{
-		SensorID:   1,
-		ServerTime: 1234567890,
-		SensorTime: 1234567880,
-	}
-	testMessage(timeSync, message.MsgTypeTimeSync, "TimeSync")
-
-	ack := &message.Ack{
-		SensorID:  1,
-		MessageID: 123,
-		Status:    message.AckOK,
-	}
-	testMessage(ack, message.MsgTypeAck, "Ack")
-
-	registration := &message.Registration{
-		SensorID:     1,
-		DeviceType:   message.DeviceType9Axis,
-		Capabilities: message.CapAccelerometer | message.CapGyroscope,
-		FWVersion:    0x0102,
-	}
-	testMessage(registration, message.MsgTypeRegister, "Registration")
-
-	fragment := &message.Fragment{
-		MessageID:      456,
-		FragmentNum:    1,
-		TotalFragments: 3,
-		Data:           []byte{0x01, 0x02, 0x03, 0x04, 0x05},
-	}
-	testMessage(fragment, message.MsgTypeFragment, "Fragment")
-
-	originalHeartbeat := &message.SensorHeartbeat{
-		SensorID:  5,
-		TimeStamp: 54321,
-		Battery:   75,
-		Status:    message.Ok,
-	}
-	originalData, _ := codec.Marshal(originalHeartbeat, 3, message.MsgTypeHeartbeat, message.TransportNone)
-
-	relayedMessage := &message.RelayedMessage{
-		RelayID:      10,
-		OriginalData: originalData,
-	}
-	testMessage(relayedMessage, message.MsgTypeRelayed, "RelayedMessage")
-
+	// Multi-sensor data (new feature)
 	sensorDataMulti := &message.SensorDataMulti{
 		SensorID:  1,
 		TimeStamp: 12345,
 		Data: []message.Data{
 			{Type: message.Accelerometer, Values: []float32{1.2, -0.5, 9.8}},
 			{Type: message.Gyroscope, Values: []float32{0.1, 0.2, 0.3}},
-			{Type: message.Quaternion, Values: []float32{0.0, 0.0, 0.0, 1.0}},
 		},
 	}
 	testMessage(sensorDataMulti, message.MsgTypeSensorDataMulti, "SensorDataMulti")
 
-	fmt.Printf("\n=== Тест декодирования ===\n")
-	data := []byte{0x4b, 0x4e, 0x00, 0x01, 0x04, 0x13, 0x01, 0x39, 0x30, 0x00, 0x00, 0x01, 0x03, 0x9a, 0x99, 0x99, 0x3f, 0x9a, 0x99, 0x59, 0x40, 0x33, 0x33, 0xb3, 0x40, 0x30}
-	decoded, err := codec.Unmarshal(data, message.TransportCRC8)
-	if err != nil {
-		fmt.Printf("Ошибка декодирования: %v\n", err)
-	} else {
-		fmt.Printf("Декодировано: %+v\n", decoded)
+	// Relayed message (for ESP-NOW mesh)
+	originalData, _ := codec.Marshal(heartbeat, 1, message.MsgTypeHeartbeat, message.TransportNone)
+	relayedMessage := &message.RelayedMessage{
+		RelayID:      10,
+		OriginalData: originalData,
 	}
+	testMessage(relayedMessage, message.MsgTypeRelayed, "RelayedMessage")
 }
 
+// testMessage demonstrates encoding and decoding a message with the Kinetica protocol.
+// It takes a message, encodes it to binary format, then decodes it back and compares results.
 func testMessage(msg message.Message, msgType message.MsgType, name string) {
-	fmt.Printf("\n=== %s ===\n", name)
+	fmt.Printf("=== %s ===\n", name)
+	fmt.Printf("Original: %+v\n", msg)
 
-	fmt.Printf("Изначальное: %+v\n", msg)
-
+	// Encode message
 	data, err := codec.Marshal(msg, 1, msgType, message.TransportCRC8)
 	if err != nil {
-		fmt.Printf("Ошибка кодирования: %v\n", err)
+		fmt.Printf("Encode error: %v\n", err)
 		return
 	}
-	fmt.Printf("Закодировано: %x\n", data)
+	fmt.Printf("Encoded (%d bytes): %x\n", len(data), data)
 
+	// Decode message
 	decoded, err := codec.Unmarshal(data, message.TransportCRC8)
 	if err != nil {
-		fmt.Printf("Ошибка декодирования: %v\n", err)
+		fmt.Printf("Decode error: %v\n", err)
 		return
 	}
-
-	fmt.Printf("Декодировано: %+v\n", decoded)
+	fmt.Printf("Decoded: %+v\n\n", decoded)
 }

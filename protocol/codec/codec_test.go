@@ -124,7 +124,6 @@ func TestMarshal_CustomData(t *testing.T) {
 }
 
 func TestMarshal_RelayedMessage(t *testing.T) {
-	// First create a simple sensor data packet
 	originalMsg := &message.SensorData{
 		SensorID:  1,
 		TimeStamp: 12345,
@@ -189,9 +188,7 @@ func TestMarshal_SensorDataMulti(t *testing.T) {
 		t.Errorf("Expected magic bytes 'KN', got %c%c", data[0], data[1])
 	}
 
-	// Size should be header(6) + sensorID(1) + timestamp(4) + dataCount(1) + 
-	// 3 data blocks: [type(1) + valueCount(1) + values(3*4)] + [type(1) + valueCount(1) + values(3*4)] + [type(1) + valueCount(1) + values(4*4)]
-	expectedSize := 6 + 1 + 4 + 1 + (1+1+12) + (1+1+12) + (1+1+16)
+	expectedSize := 6 + 1 + 4 + 1 + (1 + 1 + 12) + (1 + 1 + 12) + (1 + 1 + 16)
 	if len(data) != expectedSize {
 		t.Errorf("Expected size %d, got %d", expectedSize, len(data))
 	}
@@ -378,7 +375,6 @@ func TestUnmarshal_Ack(t *testing.T) {
 }
 
 func TestUnmarshal_RelayedMessage(t *testing.T) {
-	// First create original message
 	originalMsg := &message.SensorHeartbeat{
 		SensorID:  5,
 		TimeStamp: 54321,
@@ -391,7 +387,6 @@ func TestUnmarshal_RelayedMessage(t *testing.T) {
 		t.Fatalf("Failed to marshal original message: %v", err)
 	}
 
-	// Create relayed message
 	relayedMsg := &message.RelayedMessage{
 		RelayID:      20,
 		OriginalData: originalData,
@@ -402,7 +397,6 @@ func TestUnmarshal_RelayedMessage(t *testing.T) {
 		t.Fatalf("Marshal failed: %v", err)
 	}
 
-	// Unmarshal
 	msg, err := Unmarshal(data, message.TransportNone)
 	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
@@ -421,7 +415,6 @@ func TestUnmarshal_RelayedMessage(t *testing.T) {
 		t.Errorf("OriginalData length mismatch: expected %d, got %d", len(originalData), len(relayed.OriginalData))
 	}
 
-	// Now unmarshal the original data
 	innerMsg, err := Unmarshal(relayed.OriginalData, message.TransportNone)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal inner message: %v", err)

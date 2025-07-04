@@ -7,6 +7,7 @@ import (
 	"kinetica-protocol/protocol/message"
 )
 
+// decodeHeader reads and decodes the protocol header from the packet buffer.
 func (p *packet) decodeHeader() error {
 	if err := binary.Read(p.buf, binary.LittleEndian, &p.header); err != nil {
 		return err
@@ -14,6 +15,7 @@ func (p *packet) decodeHeader() error {
 	return nil
 }
 
+// decodePayload extracts payload bytes and dispatches to message-specific decoder.
 func (p *packet) decodePayload() error {
 	payloadBytes := make([]byte, p.header.Length)
 
@@ -52,6 +54,7 @@ func (p *packet) decodePayload() error {
 	return nil
 }
 
+// readField reads a binary field from the buffer with error context.
 func (p *packet) readField(buf *bytes.Buffer, field interface{}, fieldName string) error {
 	if err := binary.Read(buf, binary.LittleEndian, field); err != nil {
 		return fmt.Errorf("%w: failed to read %s", ErrDecodingFailed, fieldName)
@@ -59,6 +62,7 @@ func (p *packet) readField(buf *bytes.Buffer, field interface{}, fieldName strin
 	return nil
 }
 
+// decodeItem reads a configuration item (key-length-value) from the buffer.
 func (p *packet) decodeItem(buf *bytes.Buffer) (*message.Item, error) {
 	item := &message.Item{}
 
@@ -77,6 +81,7 @@ func (p *packet) decodeItem(buf *bytes.Buffer) (*message.Item, error) {
 	return item, nil
 }
 
+// validateFooter verifies the CRC footer matches the expected value for the transport.
 func (p *packet) validateFooter(transport message.TransportCRC) error {
 	if transport == message.TransportNone {
 		return nil
@@ -108,6 +113,7 @@ func (p *packet) validateFooter(transport message.TransportCRC) error {
 	return nil
 }
 
+// decodeCommand decodes a SensorCommand message from the buffer.
 func (p *packet) decodeCommand(buf *bytes.Buffer) error {
 	data := message.SensorCommand{}
 
@@ -125,6 +131,7 @@ func (p *packet) decodeCommand(buf *bytes.Buffer) error {
 	return nil
 }
 
+// decodeConfig decodes a SensorConfig message with variable-length items.
 func (p *packet) decodeConfig(buf *bytes.Buffer) error {
 	data := message.SensorConfig{}
 
@@ -152,6 +159,7 @@ func (p *packet) decodeConfig(buf *bytes.Buffer) error {
 	return nil
 }
 
+// decodeHeartbeat decodes a SensorHeartbeat message from the buffer.
 func (p *packet) decodeHeartbeat(buf *bytes.Buffer) error {
 	data := message.SensorHeartbeat{}
 
@@ -172,6 +180,7 @@ func (p *packet) decodeHeartbeat(buf *bytes.Buffer) error {
 	return nil
 }
 
+// decodeData decodes a SensorData message with variable-length float values.
 func (p *packet) decodeData(buf *bytes.Buffer) error {
 	data := message.SensorData{}
 
@@ -202,6 +211,7 @@ func (p *packet) decodeData(buf *bytes.Buffer) error {
 	return nil
 }
 
+// decodeCustomData decodes a CustomData message with variable-length items.
 func (p *packet) decodeCustomData(buf *bytes.Buffer) error {
 	data := message.CustomData{}
 
@@ -232,6 +242,7 @@ func (p *packet) decodeCustomData(buf *bytes.Buffer) error {
 	return nil
 }
 
+// decodeTimeSync decodes a TimeSync message from the buffer.
 func (p *packet) decodeTimeSync(buf *bytes.Buffer) error {
 	data := message.TimeSync{}
 
@@ -249,6 +260,7 @@ func (p *packet) decodeTimeSync(buf *bytes.Buffer) error {
 	return nil
 }
 
+// decodeAck decodes an Ack message from the buffer.
 func (p *packet) decodeAck(buf *bytes.Buffer) error {
 	data := message.Ack{}
 
@@ -266,6 +278,7 @@ func (p *packet) decodeAck(buf *bytes.Buffer) error {
 	return nil
 }
 
+// decodeRegistration decodes a Registration message from the buffer.
 func (p *packet) decodeRegistration(buf *bytes.Buffer) error {
 	data := message.Registration{}
 
@@ -286,6 +299,7 @@ func (p *packet) decodeRegistration(buf *bytes.Buffer) error {
 	return nil
 }
 
+// decodeFragment decodes a Fragment message with variable-length data.
 func (p *packet) decodeFragment(buf *bytes.Buffer) error {
 	data := message.Fragment{}
 
@@ -313,6 +327,7 @@ func (p *packet) decodeFragment(buf *bytes.Buffer) error {
 	return nil
 }
 
+// decodeRelayedMessage decodes a RelayedMessage with original data payload.
 func (p *packet) decodeRelayedMessage(buf *bytes.Buffer) error {
 	data := message.RelayedMessage{}
 
@@ -334,6 +349,7 @@ func (p *packet) decodeRelayedMessage(buf *bytes.Buffer) error {
 	return nil
 }
 
+// decodeDataMulti decodes a SensorDataMulti message with multiple data arrays.
 func (p *packet) decodeDataMulti(buf *bytes.Buffer) error {
 	data := message.SensorDataMulti{}
 

@@ -1,94 +1,82 @@
+// Package main demonstrates a TCP server implementation using the Kinetica protocol.
+// This example shows how to start a TCP server, accept client connections,
+// and handle different types of sensor messages.
 package main
 
 import (
 	"fmt"
-	"kinetica-protocol/protocol/codec"
 	"kinetica-protocol/protocol/message"
 	"kinetica-protocol/transport"
-	"kinetica-protocol/transport/tcp"
+	"kinetica-protocol/transport/net"
 	"log"
 	"time"
 )
 
 func main() {
-	config := &transport.Config{
-		Type:           transport.TCP,
-		Address:        ":8080",
-		WriteTimeout:   5 * time.Second,
-		ReadTimeout:    0,
-		DefaultCRCType: message.TransportNone,
+	// Configure TCP server
+	config := net.Config{
+		Address:      ":8081",
+		WriteTimeout: 5 * time.Second,
+		ReadTimeout:  0, // No read timeout for server
 	}
 
-	tcpTransport := tcp.NewTransportTCP(config)
-	defer tcpTransport.Close()
+	// Create TCP transport
+	transport := net.NewTCP(config)
+	defer transport.Close()
 
-	connections, err := tcpTransport.Listen()
+	// Start listening for connections
+	connections, err := transport.Listen()
 	if err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 
-	fmt.Println("Server listening on :8080")
+	fmt.Println("Server listening on :8081")
 
+	// Handle each connection in a separate goroutine
 	for conn := range connections {
 		go handleConnection(conn)
 	}
 }
 
+// handleConnection processes messages from a single client connection.
+// It handles sensor registration, data messages, and heartbeats,
+// sending appropriate acknowledgments back to the client.
 func handleConnection(conn transport.Connection) {
 	defer conn.Close()
-
-	fmt.Printf("New connection from %s\n", conn.RemoteAddr())
+	fmt.Println("Client connected")
 
 	for {
+		// Receive message from client
 		msg, err := conn.Receive()
 		if err != nil {
-			fmt.Printf("Error receiving message: %v\n", err)
+			fmt.Printf("Client disconnected: %v\n", err)
 			return
 		}
 
+		// Handle different message types
 		switch m := msg.(type) {
 		case *message.Registration:
-			fmt.Printf("Registration from sensor %d, device type: %d\n", m.SensorID, m.DeviceType)
+			fmt.Printf("Sensor %d registered (type: %d, capabilities: 0x%02x)\n", 
+				m.SensorID, m.DeviceType, m.Capabilities)
+			
+			// Send acknowledgment
 			ack := &message.Ack{
 				SensorID:  m.SensorID,
 				MessageID: 1,
 				Status:    message.AckOK,
 			}
-			if _, err := conn.Send(ack, message.MsgTypeAck); err != nil {
-				fmt.Printf("Error sending ack: %v\n", err)
+			if err := conn.Send(ack, message.MsgTypeAck); err != nil {
+				fmt.Printf("Failed to send ACK: %v\n", err)
 			}
 
 		case *message.SensorData:
-			fmt.Printf("Sensor data from %d: type=%d, values=%v\n", m.SensorID, m.Data.Type, m.Data.Values)
-
-		case *message.SensorDataMulti:
-			fmt.Printf("Multi sensor data from %d: %d datasets\n", m.SensorID, len(m.Data))
-			for i, data := range m.Data {
-				fmt.Printf("  Dataset %d: type=%d, values=%v\n", i+1, data.Type, data.Values)
-			}
+			fmt.Printf("Sensor %d data: %v\n", m.SensorID, m.Data.Values)
 
 		case *message.SensorHeartbeat:
-			fmt.Printf("Heartbeat from sensor %d, battery: %d%%\n", m.SensorID, m.Battery)
-
-		case *message.RelayedMessage:
-			fmt.Printf("Relayed message from relay %d, original data length: %d bytes\n", m.RelayID, len(m.OriginalData))
-
-			originalMsg, err := codec.Unmarshal(m.OriginalData, message.TransportNone)
-			if err != nil {
-				fmt.Printf("  Failed to decode original message: %v\n", err)
-			} else {
-				switch orig := originalMsg.(type) {
-				case *message.SensorHeartbeat:
-					fmt.Printf("  Original: Heartbeat from sensor %d, battery: %d%%\n", orig.SensorID, orig.Battery)
-				case *message.SensorData:
-					fmt.Printf("  Original: Sensor data from %d, values: %v\n", orig.SensorID, orig.Data.Values)
-				default:
-					fmt.Printf("  Original: %T\n", originalMsg)
-				}
-			}
+			fmt.Printf("Sensor %d heartbeat: %d%% battery\n", m.SensorID, m.Battery)
 
 		default:
-			fmt.Printf("Received message type: %T\n", msg)
+			fmt.Printf("Unknown message type: %T\n", msg)
 		}
 	}
 }

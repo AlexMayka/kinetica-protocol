@@ -6,6 +6,7 @@ import (
 	"kinetica-protocol/protocol/message"
 )
 
+// encodePayload dispatches encoding to the appropriate message-specific encoder.
 func (buf *buffer) encodePayload(msg message.Message) error {
 	switch m := msg.(type) {
 	case *message.SensorCommand:
@@ -35,6 +36,7 @@ func (buf *buffer) encodePayload(msg message.Message) error {
 	}
 }
 
+// encodeHeader creates and encodes the protocol header into the header buffer.
 func (buf *buffer) encodeHeader(packetID uint8, msgType message.MsgType, payloadLength uint8) error {
 	header := message.NewHeader(packetID, msgType, payloadLength)
 	if err := binary.Write(buf.bufHeader, binary.LittleEndian, header); err != nil {
@@ -44,6 +46,7 @@ func (buf *buffer) encodeHeader(packetID uint8, msgType message.MsgType, payload
 	return nil
 }
 
+// encodeFooter calculates and encodes the CRC footer based on transport type.
 func (buf *buffer) encodeFooter(transportType message.TransportCRC) error {
 	data := buf.bytes()
 	footer := message.NewFooter(transportType, data)
@@ -55,6 +58,7 @@ func (buf *buffer) encodeFooter(transportType message.TransportCRC) error {
 	return nil
 }
 
+// writeField encodes a binary field to the payload buffer with error context.
 func (buf *buffer) writeField(field interface{}, fieldName string) error {
 	if err := binary.Write(buf.bufPayload, binary.LittleEndian, field); err != nil {
 		return fmt.Errorf("%w: %s encoding failed", ErrEncodingFailed, fieldName)
@@ -62,6 +66,7 @@ func (buf *buffer) writeField(field interface{}, fieldName string) error {
 	return nil
 }
 
+// appendItem encodes a configuration item (key-length-value) to the payload buffer.
 func (buf *buffer) appendItem(item message.Item) error {
 	buf.bufPayload.WriteByte(uint8(item.Key))
 	buf.bufPayload.WriteByte(item.Length)
@@ -73,6 +78,7 @@ func (buf *buffer) appendItem(item message.Item) error {
 	return nil
 }
 
+// encodeCommand encodes a SensorCommand message to the payload buffer.
 func (buf *buffer) encodeCommand(msg *message.SensorCommand) error {
 	buf.bufPayload.WriteByte(msg.SensorID)
 
@@ -84,6 +90,7 @@ func (buf *buffer) encodeCommand(msg *message.SensorCommand) error {
 	return nil
 }
 
+// encodeConfig encodes a SensorConfig message with variable-length items.
 func (buf *buffer) encodeConfig(msg *message.SensorConfig) error {
 	buf.bufPayload.WriteByte(msg.SensorID)
 	if err := buf.writeField(msg.TimeStamp, "config timestamp"); err != nil {
@@ -101,6 +108,7 @@ func (buf *buffer) encodeConfig(msg *message.SensorConfig) error {
 	return nil
 }
 
+// encodeHeartbeat encodes a SensorHeartbeat message to the payload buffer.
 func (buf *buffer) encodeHeartbeat(msg *message.SensorHeartbeat) error {
 	buf.bufPayload.WriteByte(msg.SensorID)
 
@@ -113,6 +121,7 @@ func (buf *buffer) encodeHeartbeat(msg *message.SensorHeartbeat) error {
 	return nil
 }
 
+// encodeData encodes a SensorData message with variable-length float values.
 func (buf *buffer) encodeData(msg *message.SensorData) error {
 	buf.bufPayload.WriteByte(msg.SensorID)
 	if err := buf.writeField(msg.TimeStamp, "sensor data timestamp"); err != nil {
@@ -131,6 +140,7 @@ func (buf *buffer) encodeData(msg *message.SensorData) error {
 	return nil
 }
 
+// encodeCustomData encodes a CustomData message with variable-length items.
 func (buf *buffer) encodeCustomData(msg *message.CustomData) error {
 	buf.bufPayload.WriteByte(msg.SensorID)
 	if err := buf.writeField(msg.TimeStamp, "custom data timestamp"); err != nil {
@@ -150,6 +160,7 @@ func (buf *buffer) encodeCustomData(msg *message.CustomData) error {
 	return nil
 }
 
+// encodeTimeSync encodes a TimeSync message to the payload buffer.
 func (buf *buffer) encodeTimeSync(msg *message.TimeSync) error {
 	buf.bufPayload.WriteByte(msg.SensorID)
 
@@ -163,6 +174,7 @@ func (buf *buffer) encodeTimeSync(msg *message.TimeSync) error {
 	return nil
 }
 
+// encodeAck encodes an Ack message to the payload buffer.
 func (buf *buffer) encodeAck(msg *message.Ack) error {
 	buf.bufPayload.WriteByte(msg.SensorID)
 
@@ -174,6 +186,7 @@ func (buf *buffer) encodeAck(msg *message.Ack) error {
 	return nil
 }
 
+// encodeRegistration encodes a Registration message to the payload buffer.
 func (buf *buffer) encodeRegistration(msg *message.Registration) error {
 	buf.bufPayload.WriteByte(msg.SensorID)
 	buf.bufPayload.WriteByte(uint8(msg.DeviceType))
@@ -186,6 +199,7 @@ func (buf *buffer) encodeRegistration(msg *message.Registration) error {
 	return nil
 }
 
+// encodeFragment encodes a Fragment message with variable-length data.
 func (buf *buffer) encodeFragment(msg *message.Fragment) error {
 	if err := buf.writeField(msg.MessageID, "fragment message ID"); err != nil {
 		return err
@@ -204,6 +218,7 @@ func (buf *buffer) encodeFragment(msg *message.Fragment) error {
 	return nil
 }
 
+// encodeRelayedMessage encodes a RelayedMessage with original data payload.
 func (buf *buffer) encodeRelayedMessage(msg *message.RelayedMessage) error {
 	buf.bufPayload.WriteByte(msg.RelayID)
 
@@ -218,6 +233,7 @@ func (buf *buffer) encodeRelayedMessage(msg *message.RelayedMessage) error {
 	return nil
 }
 
+// encodeDataMulti encodes a SensorDataMulti message with multiple data arrays.
 func (buf *buffer) encodeDataMulti(m *message.SensorDataMulti) error {
 	buf.bufPayload.WriteByte(m.SensorID)
 
